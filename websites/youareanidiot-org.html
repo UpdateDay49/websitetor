@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>You Are An Idiot!</title>
+    <style>
+        @keyframes strobe {
+            0% { background-color: #fff; color: #000; }
+            50% { background-color: #000; color: #fff; }
+            100% { background-color: #fff; color: #000; }
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fff;
+            font-family: "Comic Sans MS", cursive;
+            animation: strobe 0.1s infinite;
+            cursor: crosshair;
+        }
+
+        .window {
+            position: absolute;
+            width: 250px;
+            height: 180px;
+            background: white;
+            border: 3px solid #000;
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .title-bar {
+            background: #000080;
+            color: white;
+            padding: 3px 5px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+
+        .window-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: black;
+            animation: strobe 0.15s infinite reverse;
+        }
+
+        #main-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            user-select: none;
+            pointer-events: none; /* Clicking "through" text still spawns */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-ui">
+        <h1 style="font-size: 5rem; margin: 0;">☺ ☺ ☺</h1>
+        <h2 style="font-size: 3rem;">YOU ARE AN IDIOT!</h2>
+        <p>Click anywhere to multiply...</p>
+    </div>
+
+    <script>
+        const windows = [];
+
+        function spawnWindow(startX, startY) {
+            const winEl = document.createElement('div');
+            winEl.className = 'window';
+            winEl.innerHTML = `
+                <div class="title-bar">
+                    <span>You are an idiot!</span>
+                    <span class="close-btn">[X]</span>
+                </div>
+                <div class="window-content">
+                    <div style="font-size: 2rem;">☺ ☺ ☺</div>
+                    <h3>You are an idiot!</h3>
+                </div>
+            `;
+
+            // Spawn at click location or random
+            const x = startX || Math.random() * (window.innerWidth - 250);
+            const y = startY || Math.random() * (window.innerHeight - 180);
+
+            winEl.style.left = x + 'px';
+            winEl.style.top = y + 'px';
+            document.body.appendChild(winEl);
+
+            const winObj = {
+                el: winEl,
+                x: x,
+                y: y,
+                dx: (Math.random() - 0.5) * 20,
+                dy: (Math.random() - 0.5) * 20
+            };
+
+            // Clicking the [X] spawns TWO more
+            winEl.querySelector('.close-btn').addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent the body click from firing
+                spawnWindow(winObj.x, winObj.y);
+                spawnWindow(winObj.x, winObj.y);
+            });
+
+            windows.push(winObj);
+        }
+
+        // Global click listener to spawn
+        document.body.addEventListener('mousedown', (e) => {
+            spawnWindow(e.clientX - 125, e.clientY - 90);
+        });
+
+        function animate() {
+            windows.forEach(w => {
+                w.x += w.dx;
+                w.y += w.dy;
+
+                if (w.x + 250 > window.innerWidth || w.x < 0) w.dx *= -1;
+                if (w.y + 180 > window.innerHeight || w.y < 0) w.dy *= -1;
+
+                w.el.style.left = w.x + 'px';
+                w.el.style.top = w.y + 'px';
+            });
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

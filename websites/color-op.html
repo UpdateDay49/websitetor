@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My First Web Card</title>
+    <style>
+        /* CSS: Making it look pretty */
+        body {
+            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+            width: 300px;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+        }
+
+        .profile-pic {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(45deg, #007bff, #00ff88);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+        }
+
+        h1 { font-size: 24px; color: #333; margin: 10px 0; }
+        p { color: #666; line-height: 1.5; }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="profile-pic"></div>
+        <h1>Hello World!</h1>
+        <p>This is a simple HTML/CSS card. You can use it to showcase a bio, a product, or a user profile.</p>
+        <button id="magicBtn">Click for Magic</button>
+    </div>
+
+    <script>
+        // JavaScript: Adding a little life
+        const btn = document.getElementById('magicBtn');
+        btn.addEventListener('click', () => {
+            const colors = ['#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            document.body.style.backgroundColor = randomColor;
+            btn.textContent = "Color Changed!";
+        });
+    </script>
+
+</body>
+</html>

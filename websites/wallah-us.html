@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elytopia | Roblox Edition</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
+
+        /* Roblox-style Top Bar */
+        #topbar {
+            position: absolute; top: 0; width: 100%; height: 40px;
+            background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; padding: 0 15px;
+            z-index: 10; color: white; justify-content: space-between; box-sizing: border-box;
+        }
+        .rbx-icon { width: 24px; height: 24px; opacity: 0.8; margin: 0 10px; cursor: pointer; }
+
+        /* Health Bar */
+        #health-container {
+            position: absolute; top: 10px; right: 60px; width: 120px; height: 10px;
+            background: rgba(0,0,0,0.5); border: 1px solid #fff; border-radius: 5px;
+        }
+        #health-fill { width: 100%; height: 100%; background: #00ff00; border-radius: 5px; }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
+            background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%);
+        }
+
+        #instructions {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            color: white; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 10px;
+            text-align: center; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="topbar">
+        <div>
+            <span style="font-weight: bold; letter-spacing: 1px;">say wallah</span>
+            <span style="margin-left: 20px; font-size: 14px; opacity: 0.7;">Server: #0425</span>
+        </div>
+        <div id="health-container"><div id="health-fill"></div></div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="instructions">Click to Play<br><b>WASD</b> Move | <b>SPACE</b> Jump | <b>MOUSE</b> Look</div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+
+        let scene, camera, renderer, player, clock;
+        let platforms = [];
+        const keys = {};
+
+        // Physics constants
+        const moveSpeed = 0.15;
+        const jumpForce = 0.2;
+        const gravity = 0.008;
+        let velocityY = 0;
+        let canJump = true;
+
+        // Camera controls
+        let pitch = 0, yaw = 0;
+        const mouseSensitivity = 0.002;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+            scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            clock = new THREE.Clock();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+            sun.position.set(10, 20, 10);
+            scene.add(sun);
+
+            // Create Player (The "Noob" Model)
+            const playerGroup = new THREE.Group();
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshPhongMaterial({color: 0xffff00}));
+            head.position.y = 0.75;
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.3), new THREE.MeshPhongMaterial({color: 0x0000ff}));
+            const legs = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.3), new THREE.MeshPhongMaterial({color: 0x00ff00}));
+            legs.position.y = -0.5;
+            playerGroup.add(head, torso, legs);
+            player = playerGroup;
+            scene.add(player);
+
+            // Generate Obby (Platforms)
+            createPlatform(0, -2, 0, 10, 1, 10, 0x808080); // Spawn
+            for(let i = 1; i < 15; i++) {
+                createPlatform(
+                    Math.sin(i) * 5, 
+                    i * 1.5 - 2, 
+                    -i * 6, 
+                    4, 0.5, 4, 
+                    i % 2 === 0 ? 0x9d50bb : 0xffd700
+                );
+            }
+
+            // Lava Floor
+            const lava = new THREE.Mesh(
+                new THREE.PlaneGeometry(1000, 1000),
+                new THREE.MeshBasicMaterial({color: 0xff4500})
+            );
+            lava.rotation.x = -Math.PI / 2;
+            lava.position.y = -10;
+            scene.add(lava);
+
+            // Controls
+            document.addEventListener('keydown', e => keys[e.code] = true);
+            document.addEventListener('keyup', e => keys[e.code] = false);
+            document.addEventListener('mousedown', () => document.body.requestPointerLock());
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement) {
+                    yaw -= e.movementX * mouseSensitivity;
+                    pitch -= e.movementY * mouseSensitivity;
+                    pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, pitch));
+                }
+            });
+
+            animate();
+        }
+
+        function createPlatform(x, y, z, w, h, d, color) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(w, h, d),
+                new THREE.MeshPhongMaterial({color: color})
+            );
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            platforms.push(mesh);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Movement Physics
+            if (player) {
+                let moveX = 0, moveZ = 0;
+                if (keys['KeyW']) moveZ -= 1;
+                if (keys['KeyS']) moveZ += 1;
+                if (keys['KeyA']) moveX -= 1;
+                if (keys['KeyD']) moveX += 1;
+
+                // Move relative to camera yaw
+                const direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
+                direction.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+                player.position.addScaledVector(direction, moveSpeed);
+
+                // Jump & Gravity
+                if (keys['Space'] && canJump) {
+                    velocityY = jumpForce;
+                    canJump = false;
+                }
+
+                velocityY -= gravity;
+                player.position.y += velocityY;
+
+                // Collision Detection (Simple)
+                let onGround = false;
+                platforms.forEach(p => {
+                    const bounds = new THREE.Box3().setFromObject(p);
+                    const playerPos = player.position.clone();
+                    if (playerPos.x > bounds.min.x && playerPos.x < bounds.max.x &&
+                        playerPos.z > bounds.min.z && playerPos.z < bounds.max.z &&
+                        playerPos.y > bounds.max.y && playerPos.y < bounds.max.y + 0.5) {
+                        player.position.y = bounds.max.y + 0.5;
+                        velocityY = 0;
+                        onGround = true;
+                        canJump = true;
+                    }
+                });
+
+                // Death Condition
+                if (player.position.y < -9) {
+                    player.position.set(0, 2, 0);
+                    velocityY = 0;
+                }
+
+                // Camera Follow (Third Person)
+                const camOffset = new THREE.Vector3(0, 2, 8);
+                camOffset.applyAxisAngle(new THREE.Vector3(1,0,0), pitch);
+                camOffset.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+                camera.position.copy(player.position).add(camOffset);
+                camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+
+                player.rotation.y = yaw;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
