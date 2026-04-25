@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tor Browser but better</title>
+    <style>
+        :root {
+            --bg-color: #202124;
+            --tab-bg: #292a2d;
+            --tab-active: #35363a;
+            --text-color: #e8eaed;
+            --border-color: #5f6368;
+            --accent: #8ab4f8;
+        }
+        body, html {
+            margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--tab-bg); color: var(--text-color); overflow: hidden;
+        }
+        .tab-bar {
+            display: flex; background-color: var(--bg-color); padding: 8px 8px 0 8px;
+            align-items: flex-end; gap: 5px; height: 35px;
+        }
+        .tab {
+            background-color: var(--tab-bg); border-radius: 8px 8px 0 0; padding: 8px 15px;
+            font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+            min-width: 100px; max-width: 200px; border-right: 1px solid #333;
+        }
+        .tab.active { background-color: var(--tab-active); font-weight: bold; }
+        .close-btn { font-size: 14px; cursor: pointer; color: #aaa; border-radius: 50%; padding: 0 4px; }
+        .close-btn:hover { background-color: #555; color: #fff; }
+        .new-tab-btn { background: none; border: none; color: var(--text-color); font-size: 20px; cursor: pointer; padding: 0 10px; }
+
+        .toolbar {
+            background-color: var(--tab-active); padding: 8px; display: flex; align-items: center; gap: 10px;
+            position: relative;
+        }
+        .nav-btn {
+            background: none; border: none; color: var(--text-color); font-size: 16px; cursor: pointer;
+            border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+        }
+        .nav-btn:hover { background-color: #444; }
+        .url-input {
+            flex-grow: 1; padding: 8px 15px; font-size: 14px; border-radius: 20px;
+            background-color: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);
+            outline: none; transition: border 0.2s;
+        }
+        .url-input:focus { border: 1px solid var(--accent); }
+
+        #loading-bar {
+            height: 3px; background-color: var(--accent); width: 0%;
+            position: absolute; bottom: 0; left: 0; transition: width 0.3s ease; opacity: 0;
+        }
+
+        .view-container {
+            width: 100%; height: calc(100% - 85px); position: relative; background-color: white;
+        }
+        iframe {
+            width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; display: none;
+        }
+        iframe.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="tab-bar" id="tabBar">
+        <button class="new-tab-btn" onclick="createNewTab()">+</button>
+    </div>
+
+    <div class="toolbar">
+        <button class="nav-btn" onclick="goBack()">&#8592;</button>
+        <button class="nav-btn" onclick="goForward()">&#8594;</button>
+        <button class="nav-btn" onclick="reload()">&#10227;</button>
+        <input type="text" id="addressBar" class="url-input" onkeydown="checkEnter(event)">
+        <div id="loading-bar"></div>
+    </div>
+
+    <div class="view-container" id="viewContainer"></div>
+
+    <script>
+        let tabCount = 0;
+        let activeTabId = null;
+        const tabs = {};
+
+        function navigate() {
+            if (!activeTabId) return;
+            let url = document.getElementById('addressBar').value.trim();
+
+            if (url.endsWith('.op') || url.endsWith('.we') || url.includes('.op/') || url.includes('.we/')) {
+                if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'http://' + url; 
+            } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url; 
+            }
+
+            document.getElementById('addressBar').value = url;
+            const iframe = tabs[activeTabId].iframe;
+
+            showLoading();
+
+            const proxyUrl = '/visit?url=' + encodeURIComponent(url);
+            iframe.src = proxyUrl;
+
+            tabs[activeTabId].url = url;
+        }
+
+        function checkEnter(e) { if (e.key === 'Enter') navigate(); }
+
+        function createNewTab(startUrl = 'http://youcanaccessany.op') {
+            const tabId = 'tab_' + tabCount++;
+
+            const tabBtn = document.createElement('div');
+            tabBtn.className = 'tab';
+            tabBtn.id = 'btn_' + tabId;
+            tabBtn.innerHTML = `<span>New Tab</span> <span class="close-btn" onclick="closeTab('${tabId}', event)">&#215;</span>`;
+            tabBtn.onclick = () => switchTab(tabId);
+
+            const tabBar = document.getElementById('tabBar');
+            tabBar.insertBefore(tabBtn, tabBar.lastElementChild);
+
+            const iframe = document.createElement('iframe');
+            iframe.id = 'frame_' + tabId;
+            iframe.onload = () => hideLoading(); 
+            document.getElementById('viewContainer').appendChild(iframe);
+
+            tabs[tabId] = { btn: tabBtn, iframe: iframe, url: startUrl };
+
+            switchTab(tabId);
+            document.getElementById('addressBar').value = startUrl;
+            navigate();
+        }
+
+        function switchTab(tabId) {
+            if (activeTabId) {
+                tabs[activeTabId].btn.classList.remove('active');
+                tabs[activeTabId].iframe.classList.remove('active');
+            }
+            activeTabId = tabId;
+            tabs[tabId].btn.classList.add('active');
+            tabs[tabId].iframe.classList.add('active');
+            document.getElementById('addressBar').value = tabs[tabId].url;
+        }
+
+        function closeTab(tabId, event) {
+            event.stopPropagation(); 
+            tabs[tabId].btn.remove();
+            tabs[tabId].iframe.remove();
+            delete tabs[tabId];
+
+            if (activeTabId === tabId) {
+                const remaining = Object.keys(tabs);
+                if (remaining.length > 0) switchTab(remaining[remaining.length - 1]);
+                else { activeTabId = null; document.getElementById('addressBar').value = ''; createNewTab(); }
+            }
+        }
+
+        function showLoading() {
+            const bar = document.getElementById('loading-bar');
+            bar.style.opacity = '1';
+            bar.style.width = '20%';
+            setTimeout(() => { if (bar.style.opacity === '1') bar.style.width = '70%'; }, 500);
+        }
+
+        function hideLoading() {
+            const bar = document.getElementById('loading-bar');
+            bar.style.width = '100%';
+            setTimeout(() => {
+                bar.style.opacity = '0';
+                setTimeout(() => bar.style.width = '0%', 300); 
+            }, 300);
+        }
+
+        function goBack() { if (activeTabId) tabs[activeTabId].iframe.contentWindow.history.back(); }
+        function goForward() { if (activeTabId) tabs[activeTabId].iframe.contentWindow.history.forward(); }
+        function reload() { showLoading(); navigate(); }
+
+        window.onload = () => createNewTab('http://youcanaccessany.op');
+    </script>
+</body>
+</html>
