@@ -18,7 +18,7 @@ const ALLOWED_DOMAINS = new Set([
 ]);
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'ui.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/visit', (req, res) => {
